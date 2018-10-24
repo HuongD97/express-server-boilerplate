@@ -1,15 +1,44 @@
 const express = require('express');
+const dotenv = require('dotenv').config();
+const Knex = require('knex');
 
-const PORT = process.env.PORT || 3000;
+const config = {
+    user: process.env.SQL_USER,
+    host: process.env.SQL_HOST,
+    port: process.env.SQL_PORT,
+    password: process.env.SQL_PASSWORD,
+    database: process.env.SQL_DATABASE
+};
+// Connect to the database
+const knex = Knex({
+    client: 'mysql',
+    connection: config
+});
+
+const PORT = process.env.PORT || 3001;
 
 const app = express();
 
-app.get('/', (req, res) => {
-    res.send(JSON.stringify({ Hello: `World`}));
+app.get('/api/restaurants', (req, res) => {
+    knex.select('*')
+        .from('Restaurant')
+        .then((restaurants) => {
+            res.json(restaurants);
+        })
+        .catch((err) => {
+            console.log(`Error: ${err}`);
+        });
 });
 
-app.get('/hello', (req, res) => {
-    res.send(JSON.stringify({ whoot: `hoot!`}));
+app.get('/api/parks', (req, res) => {
+    knex.select('*')
+        .from('Park')
+        .then((parks) => {
+            res.json(parks);
+        })
+        .catch((err) => {
+            console.log(`ERROR GRABBING PARKS: ${err}`);
+        });
 });
 
 app.listen(PORT, () => {
