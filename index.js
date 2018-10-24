@@ -1,6 +1,7 @@
 const express = require('express');
 const dotenv = require('dotenv').config();
 const Knex = require('knex');
+const each = require('async/each');
 
 const config = {
     user: process.env.SQL_USER,
@@ -26,7 +27,7 @@ app.get('/api/restaurants', (req, res) => {
             res.json(restaurants);
         })
         .catch((err) => {
-            console.log(`Error: ${err}`);
+            console.error(err);
         });
 });
 
@@ -37,7 +38,72 @@ app.get('/api/parks', (req, res) => {
             res.json(parks);
         })
         .catch((err) => {
-            console.log(`ERROR GRABBING PARKS: ${err}`);
+            console.error(err);
+        });
+});
+
+function getParkID(parkName) {
+    return knex.select('parkID')
+        .from('Park')
+        .where('parkName', '=', parkName)
+        .then((result) => {
+            const queryResult = JSON.parse(JSON.stringify(result));
+            if (queryResult.length > 1) {
+                throw new Error(`There are more than one parkIDs mapped to ${parkName}`);
+            }
+
+            return queryResult[0];
+        })
+        .catch((err) => {
+            console.error(err);
+        });
+}
+
+function getLandIDs(parkID) {
+    return knex.select('landID')
+        .from('Land')
+        .where('parkID', '=', parkID)
+        .then((result) => {
+            return JSON.parse(JSON.stringify(result));
+        })
+        .catch((err) => {
+            console.error(err);
+        });
+}
+
+function getAllRestaurants(landID) {
+    return knex.select('*')
+        .from('Restaurant')
+        .where('landID', '=', landID)
+        .then((result) => {
+            return JSON.parse(JSON.stringify(result));
+        })
+        .catch((err) => {
+            console.error(err);
+        });
+}
+
+app.get('/api/magicKingdomRestaurants', (req, res) => {
+    const { parkName } = req.query;
+    let allRestaurants = [];
+
+    getParkID(parkName)
+        .then((result) => result.parkID)
+        .then((parkID) => getLandIDs(parkID))
+        .then((lands) => {
+            each(lands, (land, next) => {
+                getAllRestaurants(land.landID).then((restaurants) => {
+                    allRestaurants = allRestaurants.concat(restaurants);
+                    next();
+                }).catch((err) => next(err));
+            }, (err) => {
+                if (err) throw new Error(err);
+                console.log(`allRestaurants ${allRestaurants}`);
+                res.send({allRestaurants: allRestaurants});
+            })
+        })
+        .catch((err) => {
+            console.error(err);
         });
 });
 
